@@ -26,6 +26,26 @@ cd aa
 go build -o gitback back.go
 ```
 
+### Windows打包
+
+在Windows系统上，可以使用以下命令编译为可执行文件：
+
+```cmd
+git clone https://git.qq.top/ai/aa.git
+cd aa
+go build -o gitback.exe back.go
+```
+
+也可以使用以下命令进行交叉编译，在其他系统上为Windows生成可执行文件：
+
+```bash
+# 在Linux/macOS上为Windows 64位系统编译
+GOOS=windows GOARCH=amd64 go build -o gitback.exe back.go
+
+# 在Linux/macOS上为Windows 32位系统编译
+GOOS=windows GOARCH=386 go build -o gitback.exe back.go
+```
+
 ## 配置
 
 在`back.go`文件中修改以下常量：
