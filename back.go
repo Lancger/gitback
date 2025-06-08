@@ -16,13 +16,34 @@ import (
 )
 
 const (
-	GITLAB_URL    = "https://git.qq.top/"  // 替换为您的 GitLab 实例地址
+	GITLAB_URL    = "https://git.qq.com"   // 替换为您的 GitLab 实例地址
 	PRIVATE_TOKEN = "x7TfeZy49Ks3LT4Hx9bw" // 替换为您的私人令牌
 	MAX_RETRIES   = 3                      // 最大重试次数
 	CONCURRENT    = 5                      // 并发下载数
 	REPO_FILE     = "repo.txt"             // 存储仓库URL的文件
 	ALL_REPO_FILE = "all_repos.txt"        // 存储所有仓库URL的文件
 )
+
+// 内置的默认仓库列表
+var defaultRepos = []string{
+	"#项目",
+	"https://git.qq.com/aa/aabb-mng-web.git",
+	"https://git.qq.com/aa/aabb-web.git",
+	"https://git.qq.com/aa/aabb-app.git",
+	"https://git.qq.com/aa/aabb-mng.git",
+	"https://git.qq.com/aa/phone-msg.git",
+	"https://git.qq.com/aa/swap-master.git",
+	"https://git.qq.com/aa/x-swap.git",
+	"https://git.qq.com/aa/swap-ui.git",
+	"https://git.qq.com/aa/aabb-h5.git",
+	"https://git.qq.com/aa/app-code-editing.git",
+	"",
+	"#项目",
+	"https://git.qq.com/bb_backend/aabb-mng-big.git",
+	"https://git.qq.com/bb_frontend/bb-web.git",
+	"https://git.qq.com/bb_frontend/bb-admin-manager.git",
+	"https://git.qq.com/bb_frontend/bb-app.git",
+}
 
 // 命令行参数
 type CommandFlags struct {
@@ -84,6 +105,32 @@ func (c *BackupConfig) createDirectories() error {
 	return nil
 }
 
+// 检查repo.txt文件是否存在，如果不存在则创建并写入默认仓库列表
+func ensureRepoFileExists() error {
+	// 检查文件是否存在
+	if _, err := os.Stat(REPO_FILE); os.IsNotExist(err) {
+		log.Printf("仓库文件 %s 不存在，创建默认文件", REPO_FILE)
+
+		// 创建文件并写入默认仓库列表
+		file, err := os.Create(REPO_FILE)
+		if err != nil {
+			return fmt.Errorf("创建仓库文件失败: %v", err)
+		}
+		defer file.Close()
+
+		// 写入默认仓库列表
+		for _, repo := range defaultRepos {
+			if _, err := fmt.Fprintln(file, repo); err != nil {
+				return fmt.Errorf("写入默认仓库失败: %v", err)
+			}
+		}
+
+		log.Printf("已创建默认仓库文件 %s，包含 %d 个仓库", REPO_FILE, len(defaultRepos))
+	}
+
+	return nil
+}
+
 // 获取所有项目
 func getAllProjects() ([]Project, error) {
 	var allProjects []Project
@@ -93,7 +140,7 @@ func getAllProjects() ([]Project, error) {
 	log.Println("开始获取所有GitLab项目信息...")
 
 	for {
-		url := fmt.Sprintf("%sapi/v4/projects?page=%d&per_page=%d&order_by=id&sort=asc", GITLAB_URL, page, perPage)
+		url := fmt.Sprintf("%s/api/v4/projects?page=%d&per_page=%d&order_by=id&sort=asc", GITLAB_URL, page, perPage)
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, err
@@ -155,6 +202,11 @@ func saveAllReposToFile(projects []Project) error {
 
 // 读取repo.txt文件中的仓库URL
 func readRepoURLs() ([]string, error) {
+	// 确保仓库文件存在
+	if err := ensureRepoFileExists(); err != nil {
+		return nil, err
+	}
+
 	file, err := os.Open(REPO_FILE)
 	if err != nil {
 		return nil, fmt.Errorf("打开仓库文件失败 %s: %v", REPO_FILE, err)
@@ -165,7 +217,8 @@ func readRepoURLs() ([]string, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		url := strings.TrimSpace(scanner.Text())
-		if url != "" {
+		// 跳过空行和注释行
+		if url != "" && !strings.HasPrefix(url, "#") {
 			urls = append(urls, url)
 		}
 	}
@@ -175,7 +228,7 @@ func readRepoURLs() ([]string, error) {
 	}
 
 	if len(urls) == 0 {
-		return nil, fmt.Errorf("仓库文件为空或没有有效的URL")
+		return nil, fmt.Errorf("仓库文件中没有有效的URL")
 	}
 
 	return urls, nil
@@ -215,7 +268,7 @@ func extractProjectPath(url string) string {
 func getProjectByPath(projectPath string) (Project, error) {
 	// 使用URL编码的路径，并且使用正确的API格式
 	encodedPath := strings.ReplaceAll(projectPath, "/", "%2F")
-	url := fmt.Sprintf("%sapi/v4/projects/%s", GITLAB_URL, encodedPath)
+	url := fmt.Sprintf("%s/api/v4/projects/%s", GITLAB_URL, encodedPath)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -245,7 +298,7 @@ func getProjectByPath(projectPath string) (Project, error) {
 // 通过搜索项目名称获取项目信息
 func searchProjectByName(projectName string) (Project, error) {
 	// 使用搜索API查询项目
-	url := fmt.Sprintf("%sapi/v4/projects?search=%s", GITLAB_URL, projectName)
+	url := fmt.Sprintf("%s/api/v4/projects?search=%s", GITLAB_URL, projectName)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -280,7 +333,7 @@ func searchProjectByName(projectName string) (Project, error) {
 // 通过克隆URL获取项目
 func getProjectByCloneURL(cloneURL string) (Project, error) {
 	// 构建API请求
-	url := fmt.Sprintf("%sapi/v4/projects?search=%s", GITLAB_URL, cloneURL)
+	url := fmt.Sprintf("%s/api/v4/projects?search=%s", GITLAB_URL, cloneURL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -316,7 +369,7 @@ func getProjectByCloneURL(cloneURL string) (Project, error) {
 
 // 通过项目ID获取项目
 func getProjectByID(projectID int) (Project, error) {
-	url := fmt.Sprintf("%sapi/v4/projects/%d", GITLAB_URL, projectID)
+	url := fmt.Sprintf("%s/api/v4/projects/%d", GITLAB_URL, projectID)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -454,7 +507,7 @@ func downloadBackup(project Project, wg *sync.WaitGroup, semaphore chan struct{}
 	defer wg.Done()
 	defer func() { <-semaphore }()
 
-	backupURL := fmt.Sprintf("%sapi/v4/projects/%d/repository/archive.zip", GITLAB_URL, project.ID)
+	backupURL := fmt.Sprintf("%s/api/v4/projects/%d/repository/archive.zip", GITLAB_URL, project.ID)
 	projectDir := filepath.Join(config.ProjectsDir, project.PathWithNamespace)
 	fileName := filepath.Join(projectDir, "repository.zip")
 

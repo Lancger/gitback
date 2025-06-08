@@ -1,0 +1,132 @@
+{
+  "backup_time": "2025-06-08 22:57:22",
+  "total_projects": 14,
+  "projects": [
+    {
+      "id": 115,
+      "name": "coin-mng-web",
+      "web_url": "https://git.dgtuthcy.top/coin2024/coin-mng-web",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:coin2024/coin-mng-web.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/coin2024/coin-mng-web.git",
+      "path": "coin-mng-web",
+      "path_with_namespace": "coin2024/coin-mng-web"
+    },
+    {
+      "id": 119,
+      "name": "coin-web",
+      "web_url": "https://git.dgtuthcy.top/coin2024/coin-web",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:coin2024/coin-web.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/coin2024/coin-web.git",
+      "path": "coin-web",
+      "path_with_namespace": "coin2024/coin-web"
+    },
+    {
+      "id": 117,
+      "name": "coin-app",
+      "web_url": "https://git.dgtuthcy.top/coin2024/coin-app",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:coin2024/coin-app.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/coin2024/coin-app.git",
+      "path": "coin-app",
+      "path_with_namespace": "coin2024/coin-app"
+    },
+    {
+      "id": 120,
+      "name": "coin-mng",
+      "web_url": "https://git.dgtuthcy.top/coin2024/coin-mng",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:coin2024/coin-mng.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/coin2024/coin-mng.git",
+      "path": "coin-mng",
+      "path_with_namespace": "coin2024/coin-mng"
+    },
+    {
+      "id": 133,
+      "name": "phone-msg",
+      "web_url": "https://git.dgtuthcy.top/coin2024/phone-msg",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:coin2024/phone-msg.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/coin2024/phone-msg.git",
+      "path": "phone-msg",
+      "path_with_namespace": "coin2024/phone-msg"
+    },
+    {
+      "id": 125,
+      "name": "swap-master",
+      "web_url": "https://git.dgtuthcy.top/coin2024/swap-master",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:coin2024/swap-master.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/coin2024/swap-master.git",
+      "path": "swap-master",
+      "path_with_namespace": "coin2024/swap-master"
+    },
+    {
+      "id": 121,
+      "name": "x-swap",
+      "web_url": "https://git.dgtuthcy.top/coin2024/x-swap",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:coin2024/x-swap.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/coin2024/x-swap.git",
+      "path": "x-swap",
+      "path_with_namespace": "coin2024/x-swap"
+    },
+    {
+      "id": 126,
+      "name": "swap-ui",
+      "web_url": "https://git.dgtuthcy.top/coin2024/swap-ui",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:coin2024/swap-ui.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/coin2024/swap-ui.git",
+      "path": "swap-ui",
+      "path_with_namespace": "coin2024/swap-ui"
+    },
+    {
+      "id": 118,
+      "name": "coin-h5",
+      "web_url": "https://git.dgtuthcy.top/coin2024/coin-h5",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:coin2024/coin-h5.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/coin2024/coin-h5.git",
+      "path": "coin-h5",
+      "path_with_namespace": "coin2024/coin-h5"
+    },
+    {
+      "id": 116,
+      "name": "app-code-editing",
+      "web_url": "https://git.dgtuthcy.top/coin2024/app-code-editing",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:coin2024/app-code-editing.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/coin2024/app-code-editing.git",
+      "path": "app-code-editing",
+      "path_with_namespace": "coin2024/app-code-editing"
+    },
+    {
+      "id": 146,
+      "name": "coin-mng-big",
+      "web_url": "https://git.dgtuthcy.top/finance_backend/coin-mng-big",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:finance_backend/coin-mng-big.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/finance_backend/coin-mng-big.git",
+      "path": "coin-mng-big",
+      "path_with_namespace": "finance_backend/coin-mng-big"
+    },
+    {
+      "id": 147,
+      "name": "finance-web",
+      "web_url": "https://git.dgtuthcy.top/finance_frontend/finance-web",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:finance_frontend/finance-web.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/finance_frontend/finance-web.git",
+      "path": "finance-web",
+      "path_with_namespace": "finance_frontend/finance-web"
+    },
+    {
+      "id": 148,
+      "name": "finance-admin-manager",
+      "web_url": "https://git.dgtuthcy.top/finance_frontend/finance-admin-manager",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:finance_frontend/finance-admin-manager.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/finance_frontend/finance-admin-manager.git",
+      "path": "finance-admin-manager",
+      "path_with_namespace": "finance_frontend/finance-admin-manager"
+    },
+    {
+      "id": 149,
+      "name": "finance-app",
+      "web_url": "https://git.dgtuthcy.top/finance_frontend/finance-app",
+      "ssh_url_to_repo": "git@git.dgtuthcy.top:finance_frontend/finance-app.git",
+      "http_url_to_repo": "https://git.dgtuthcy.top/finance_frontend/finance-app.git",
+      "path": "finance-app",
+      "path_with_namespace": "finance_frontend/finance-app"
+    }
+  ]
+}

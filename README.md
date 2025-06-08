@@ -10,6 +10,7 @@ GitLab仓库备份工具，支持备份指定仓库或获取所有仓库列表�
 - 并发下载，提高备份效率
 - 自动重试失败的下载
 - 生成详细的备份报告
+- 当本地不存在repo.txt文件时，自动创建并写入默认仓库列表
 
 ## 安装
 
@@ -42,18 +43,29 @@ const (
 
 ## 使用方法
 
-### 准备仓库列表
+### 仓库列表
 
-创建一个名为`repo.txt`的文件，每行包含一个要备份的仓库URL，例如：
+程序会从`repo.txt`文件中读取要备份的仓库URL。如果该文件不存在，程序会自动创建并写入默认的仓库列表。
+
+您也可以手动创建或编辑`repo.txt`文件，每行包含一个要备份的仓库URL，例如：
 
 ```
-https://git.qq.top/ai/aa.git
+#合约项目
+https://git.qq.top/coin2024/coin-mng-web.git
+https://git.qq.top/coin2024/coin-web.git
+
+#综合项目
+https://git.qq.top/finance_frontend/finance-app.git
 ```
 
 支持以下格式：
 - 完整的HTTP(S) URL：`https://git.qq.top/group/project.git`
 - 项目路径：`group/project`
 - 项目ID：纯数字
+
+注意：
+- 以`#`开头的行会被视为注释，不会被处理
+- 空行会被忽略
 
 ### 命令行参数
 

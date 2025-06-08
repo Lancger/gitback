@@ -1,0 +1,89 @@
+备份日期: 20250608
+备份时间: 2025-06-08 22:57:22
+项目总数: 14
+==================================================
+
+项目名称: coin-mng-web
+项目路径: coin2024/coin-mng-web
+Web URL: https://git.dgtuthcy.top/coin2024/coin-mng-web
+SSH URL: git@git.dgtuthcy.top:coin2024/coin-mng-web.git
+HTTP URL: https://git.dgtuthcy.top/coin2024/coin-mng-web.git
+--------------------------------------------------
+项目名称: coin-web
+项目路径: coin2024/coin-web
+Web URL: https://git.dgtuthcy.top/coin2024/coin-web
+SSH URL: git@git.dgtuthcy.top:coin2024/coin-web.git
+HTTP URL: https://git.dgtuthcy.top/coin2024/coin-web.git
+--------------------------------------------------
+项目名称: coin-app
+项目路径: coin2024/coin-app
+Web URL: https://git.dgtuthcy.top/coin2024/coin-app
+SSH URL: git@git.dgtuthcy.top:coin2024/coin-app.git
+HTTP URL: https://git.dgtuthcy.top/coin2024/coin-app.git
+--------------------------------------------------
+项目名称: coin-mng
+项目路径: coin2024/coin-mng
+Web URL: https://git.dgtuthcy.top/coin2024/coin-mng
+SSH URL: git@git.dgtuthcy.top:coin2024/coin-mng.git
+HTTP URL: https://git.dgtuthcy.top/coin2024/coin-mng.git
+--------------------------------------------------
+项目名称: phone-msg
+项目路径: coin2024/phone-msg
+Web URL: https://git.dgtuthcy.top/coin2024/phone-msg
+SSH URL: git@git.dgtuthcy.top:coin2024/phone-msg.git
+HTTP URL: https://git.dgtuthcy.top/coin2024/phone-msg.git
+--------------------------------------------------
+项目名称: swap-master
+项目路径: coin2024/swap-master
+Web URL: https://git.dgtuthcy.top/coin2024/swap-master
+SSH URL: git@git.dgtuthcy.top:coin2024/swap-master.git
+HTTP URL: https://git.dgtuthcy.top/coin2024/swap-master.git
+--------------------------------------------------
+项目名称: x-swap
+项目路径: coin2024/x-swap
+Web URL: https://git.dgtuthcy.top/coin2024/x-swap
+SSH URL: git@git.dgtuthcy.top:coin2024/x-swap.git
+HTTP URL: https://git.dgtuthcy.top/coin2024/x-swap.git
+--------------------------------------------------
+项目名称: swap-ui
+项目路径: coin2024/swap-ui
+Web URL: https://git.dgtuthcy.top/coin2024/swap-ui
+SSH URL: git@git.dgtuthcy.top:coin2024/swap-ui.git
+HTTP URL: https://git.dgtuthcy.top/coin2024/swap-ui.git
+--------------------------------------------------
+项目名称: coin-h5
+项目路径: coin2024/coin-h5
+Web URL: https://git.dgtuthcy.top/coin2024/coin-h5
+SSH URL: git@git.dgtuthcy.top:coin2024/coin-h5.git
+HTTP URL: https://git.dgtuthcy.top/coin2024/coin-h5.git
+--------------------------------------------------
+项目名称: app-code-editing
+项目路径: coin2024/app-code-editing
+Web URL: https://git.dgtuthcy.top/coin2024/app-code-editing
+SSH URL: git@git.dgtuthcy.top:coin2024/app-code-editing.git
+HTTP URL: https://git.dgtuthcy.top/coin2024/app-code-editing.git
+--------------------------------------------------
+项目名称: coin-mng-big
+项目路径: finance_backend/coin-mng-big
+Web URL: https://git.dgtuthcy.top/finance_backend/coin-mng-big
+SSH URL: git@git.dgtuthcy.top:finance_backend/coin-mng-big.git
+HTTP URL: https://git.dgtuthcy.top/finance_backend/coin-mng-big.git
+--------------------------------------------------
+项目名称: finance-web
+项目路径: finance_frontend/finance-web
+Web URL: https://git.dgtuthcy.top/finance_frontend/finance-web
+SSH URL: git@git.dgtuthcy.top:finance_frontend/finance-web.git
+HTTP URL: https://git.dgtuthcy.top/finance_frontend/finance-web.git
+--------------------------------------------------
+项目名称: finance-admin-manager
+项目路径: finance_frontend/finance-admin-manager
+Web URL: https://git.dgtuthcy.top/finance_frontend/finance-admin-manager
+SSH URL: git@git.dgtuthcy.top:finance_frontend/finance-admin-manager.git
+HTTP URL: https://git.dgtuthcy.top/finance_frontend/finance-admin-manager.git
+--------------------------------------------------
+项目名称: finance-app
+项目路径: finance_frontend/finance-app
+Web URL: https://git.dgtuthcy.top/finance_frontend/finance-app
+SSH URL: git@git.dgtuthcy.top:finance_frontend/finance-app.git
+HTTP URL: https://git.dgtuthcy.top/finance_frontend/finance-app.git
+--------------------------------------------------
