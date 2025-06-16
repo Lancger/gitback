@@ -2,12 +2,15 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,7 +19,7 @@ import (
 )
 
 const (
-	GITLAB_URL    = "https://git.qq.com"   // 替换为您的 GitLab 实例地址
+	GITLAB_URL    = "https://git.qq.top"   // 替换为您的 GitLab 实例地址
 	PRIVATE_TOKEN = "x7TfeZy49Ks3LT4Hx9bw" // 替换为您的私人令牌
 	MAX_RETRIES   = 3                      // 最大重试次数
 	CONCURRENT    = 5                      // 并发下载数
@@ -27,28 +30,16 @@ const (
 // 内置的默认仓库列表
 var defaultRepos = []string{
 	"#项目",
-	"https://git.qq.com/aa/aabb-mng-web.git",
-	"https://git.qq.com/aa/aabb-web.git",
-	"https://git.qq.com/aa/aabb-app.git",
-	"https://git.qq.com/aa/aabb-mng.git",
-	"https://git.qq.com/aa/phone-msg.git",
-	"https://git.qq.com/aa/swap-master.git",
-	"https://git.qq.com/aa/x-swap.git",
-	"https://git.qq.com/aa/swap-ui.git",
-	"https://git.qq.com/aa/aabb-h5.git",
-	"https://git.qq.com/aa/app-code-editing.git",
-	"",
-	"#项目",
-	"https://git.qq.com/bb_backend/aabb-mng-big.git",
-	"https://git.qq.com/bb_frontend/bb-web.git",
-	"https://git.qq.com/bb_frontend/bb-admin-manager.git",
-	"https://git.qq.com/bb_frontend/bb-app.git",
+	"https://git.qq.top/coin2024/qqmng-web.git",
+	"https://git.qq.top/coin2024/qq-web.git",
 }
 
 // 命令行参数
 type CommandFlags struct {
-	ListAllRepos bool // 是否获取并保存所有仓库列表
-	BackupRepos  bool // 是否备份仓库
+	ListAllRepos     bool // 是否获取并保存所有仓库列表
+	BackupRepos      bool // 是否备份仓库
+	ExtractCode      bool // 是否提取分支代码
+	DownloadArchives bool // 是否下载分支压缩包
 }
 
 type Project struct {
@@ -503,13 +494,12 @@ func saveProjectInfo(projects []Project, config BackupConfig) error {
 	return nil
 }
 
-func downloadBackup(project Project, wg *sync.WaitGroup, semaphore chan struct{}, config BackupConfig) {
+func downloadBackup(project Project, wg *sync.WaitGroup, semaphore chan struct{}, config BackupConfig, extractCode bool) {
 	defer wg.Done()
 	defer func() { <-semaphore }()
 
-	backupURL := fmt.Sprintf("%s/api/v4/projects/%d/repository/archive.zip", GITLAB_URL, project.ID)
 	projectDir := filepath.Join(config.ProjectsDir, project.PathWithNamespace)
-	fileName := filepath.Join(projectDir, "repository.zip")
+	gitDir := filepath.Join(projectDir, "repository.git")
 
 	// 创建项目目录
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
@@ -517,93 +507,207 @@ func downloadBackup(project Project, wg *sync.WaitGroup, semaphore chan struct{}
 		return
 	}
 
-	// 检查文件是否已存在
-	if _, err := os.Stat(fileName); err == nil {
-		log.Printf("文件已存在，跳过下载 %s\n", fileName)
-		return
-	}
+	// 检查git目录是否已存在
+	if _, err := os.Stat(gitDir); err == nil {
+		log.Printf("Git仓库已存在，尝试更新 %s\n", gitDir)
 
-	// 创建临时文件
-	tmpFile := fileName + ".tmp"
-	out, err := os.Create(tmpFile)
-	if err != nil {
-		log.Printf("创建临时文件失败 %s: %v\n", tmpFile, err)
-		return
-	}
+		// 更新已有仓库的所有分支和标签
+		if err := updateGitRepository(gitDir, project.PathWithNamespace); err != nil {
+			log.Printf("更新仓库失败 %s: %v\n", project.PathWithNamespace, err)
+		} else {
+			log.Printf("成功更新仓库 %s 的所有分支和标签\n", project.PathWithNamespace)
+		}
+	} else {
+		// 使用git clone --mirror命令下载所有分支
+		cloneURL := project.HTTPURLToRepo
 
-	success := false
-	defer func() {
-		out.Close()
+		// 添加认证信息到URL
+		parsedURL := strings.Split(cloneURL, "://")
+		if len(parsedURL) == 2 {
+			cloneURL = fmt.Sprintf("%s://oauth2:%s@%s", parsedURL[0], PRIVATE_TOKEN, parsedURL[1])
+		}
+
+		log.Printf("开始克隆项目 %s 的所有分支\n", project.PathWithNamespace)
+
+		success := false
+		for retry := 0; retry < MAX_RETRIES; retry++ {
+			if retry > 0 {
+				log.Printf("重试克隆 %s (第 %d 次)\n", project.PathWithNamespace, retry+1)
+				time.Sleep(time.Second * time.Duration(retry)) // 重试延迟
+			}
+
+			// 设置超时
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			cmd := exec.CommandContext(ctx, "git", "clone", "--mirror", cloneURL, gitDir)
+
+			output, err := cmd.CombinedOutput()
+			cancel() // 执行完命令后取消上下文
+
+			if err != nil {
+				log.Printf("克隆失败 %s: %v\n%s\n", project.PathWithNamespace, err, string(output))
+				// 如果目录已存在但不完整，删除它以便重试
+				os.RemoveAll(gitDir)
+				continue
+			}
+
+			log.Printf("成功克隆项目 %s 的所有分支到 %s\n", project.PathWithNamespace, gitDir)
+			success = true
+			break
+		}
+
 		if !success {
-			os.Remove(tmpFile) // 如果下载失败，删除临时文件
-		}
-	}()
-
-	// 下载文件
-	for retry := 0; retry < MAX_RETRIES; retry++ {
-		if retry > 0 {
-			log.Printf("重试下载 %s (第 %d 次)\n", project.PathWithNamespace, retry+1)
-			time.Sleep(time.Second * time.Duration(retry)) // 重试延迟
-		}
-
-		req, err := http.NewRequest("GET", backupURL, nil)
-		if err != nil {
-			log.Printf("创建请求失败 %s: %v\n", backupURL, err)
-			continue
-		}
-
-		req.Header.Set("PRIVATE-TOKEN", PRIVATE_TOKEN)
-		client := &http.Client{
-			Timeout: 30 * time.Minute, // 设置较长的超时时间
-		}
-
-		resp, err := client.Do(req)
-		if err != nil {
-			log.Printf("下载失败 %s: %v\n", backupURL, err)
-			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
-			log.Printf("下载失败 %s: 状态码 %d\n", backupURL, resp.StatusCode)
-			continue
-		}
-
-		// 重置文件指针到开始位置
-		out.Seek(0, 0)
-
-		// 使用io.Copy进行下载，并显示进度
-		written, err := io.Copy(out, resp.Body)
-		resp.Body.Close()
-
-		if err != nil {
-			log.Printf("保存文件失败 %s: %v\n", fileName, err)
-			continue
-		}
-
-		if written == 0 {
-			log.Printf("警告：下载的文件大小为0 %s\n", project.PathWithNamespace)
-			continue
-		}
-
-		// 下载成功，将临时文件重命名为最终文件
-		out.Close()
-		if err := os.Rename(tmpFile, fileName); err != nil {
-			log.Printf("重命名文件失败 %s: %v\n", fileName, err)
+			log.Printf("克隆失败，已达到最大重试次数 %s\n", project.PathWithNamespace)
 			return
 		}
-
-		success = true
-		log.Printf("成功下载项目 %s (%.2f MB)\n", project.PathWithNamespace, float64(written)/(1024*1024))
-		return
 	}
 
-	log.Printf("下载失败，已达到最大重试次数 %s\n", project.PathWithNamespace)
+	// 根据参数决定是否提取分支代码
+	if extractCode {
+		// 提取所有分支的代码
+		log.Printf("开始提取项目 %s 的所有分支代码\n", project.PathWithNamespace)
+		if err := extractAllBranches(project, config); err != nil {
+			log.Printf("提取分支代码失败 %s: %v\n", project.PathWithNamespace, err)
+		} else {
+			log.Printf("成功提取项目 %s 的所有分支代码\n", project.PathWithNamespace)
+		}
+	}
+}
+
+// 更新已有的Git仓库
+func updateGitRepository(gitDir string, projectPath string) error {
+	// 设置超时
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+
+	// 切换到仓库目录
+	cmd := exec.CommandContext(ctx, "git", "-C", gitDir, "remote", "update", "--prune")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("更新失败: %v\n%s", err, string(output))
+	}
+
+	// 获取所有标签
+	cmd = exec.CommandContext(ctx, "git", "-C", gitDir, "fetch", "--tags")
+
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("获取标签失败: %v\n%s", err, string(output))
+	}
+
+	return nil
+}
+
+// 获取Git仓库的分支和标签数量
+func getGitRepoStats(gitDir string) (int, int, error) {
+	// 获取分支数量
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "-C", gitDir, "branch", "--all", "--list")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return 0, 0, fmt.Errorf("获取分支失败: %v", err)
+	}
+
+	branches := 0
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" && !strings.Contains(line, "HEAD") {
+			branches++
+		}
+	}
+
+	// 获取标签数量
+	cmd = exec.CommandContext(ctx, "git", "-C", gitDir, "tag", "--list")
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		return branches, 0, fmt.Errorf("获取标签失败: %v", err)
+	}
+
+	tags := 0
+	lines = strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			tags++
+		}
+	}
+
+	return branches, tags, nil
+}
+
+type ProjectStats struct {
+	Project          Project
+	Branches         int
+	Tags             int
+	ExtractedCode    bool // 是否成功提取了代码
+	ArchivedBranches int  // 下载的分支压缩包数量
 }
 
 func generateBackupReport(projects []Project, startTime time.Time, config BackupConfig) error {
 	endTime := time.Now()
 	duration := endTime.Sub(startTime)
+
+	// 收集项目统计信息
+	var projectStats []ProjectStats
+	var totalBranches, totalTags, extractedProjects, archivedBranches int
+
+	log.Println("收集仓库统计信息...")
+
+	for _, project := range projects {
+		gitDir := filepath.Join(config.ProjectsDir, project.PathWithNamespace, "repository.git")
+		branchesDir := filepath.Join(config.ProjectsDir, project.PathWithNamespace, "branches")
+		archivesDir := filepath.Join(config.ProjectsDir, project.PathWithNamespace, "archives")
+
+		// 检查仓库是否存在
+		repoExists := false
+		if _, err := os.Stat(gitDir); err == nil {
+			repoExists = true
+		}
+
+		// 检查是否提取了代码
+		extractedCode := false
+		if _, err := os.Stat(branchesDir); err == nil {
+			extractedCode = true
+			extractedProjects++
+		}
+
+		// 获取仓库统计信息
+		branches, tags := 0, 0
+		if repoExists {
+			var err error
+			branches, tags, err = getGitRepoStats(gitDir)
+			if err != nil {
+				log.Printf("获取仓库统计信息失败 %s: %v", project.PathWithNamespace, err)
+			}
+		}
+
+		// 获取压缩包数量
+		archivedCount := 0
+		if _, err := os.Stat(archivesDir); err == nil {
+			// 统计压缩包数量
+			files, err := os.ReadDir(archivesDir)
+			if err == nil {
+				for _, file := range files {
+					if !file.IsDir() && strings.HasSuffix(file.Name(), ".zip") {
+						archivedCount++
+					}
+				}
+			}
+		}
+		archivedBranches += archivedCount
+
+		projectStats = append(projectStats, ProjectStats{
+			Project:          project,
+			Branches:         branches,
+			Tags:             tags,
+			ExtractedCode:    extractedCode,
+			ArchivedBranches: archivedCount,
+		})
+
+		totalBranches += branches
+		totalTags += tags
+	}
 
 	reportPath := filepath.Join(config.ReportDir, "backup_report.txt")
 	f, err := os.Create(reportPath)
@@ -619,17 +723,44 @@ func generateBackupReport(projects []Project, startTime time.Time, config Backup
 	fmt.Fprintf(f, "备份结束时间: %s\n", endTime.Format("2006-01-02 15:04:05"))
 	fmt.Fprintf(f, "备份总耗时: %s\n", duration.Round(time.Second))
 	fmt.Fprintf(f, "备份项目总数: %d\n", len(projects))
+	fmt.Fprintf(f, "备份分支总数: %d\n", totalBranches)
+	fmt.Fprintf(f, "备份标签总数: %d\n", totalTags)
+	fmt.Fprintf(f, "成功提取代码的项目数: %d\n", extractedProjects)
+	fmt.Fprintf(f, "下载的分支压缩包总数: %d\n", archivedBranches)
 	fmt.Fprintf(f, "备份目录: %s\n", config.BackupDir)
-	fmt.Fprintf(f, "%s\n", strings.Repeat("=", 50))
+	fmt.Fprintf(f, "%s\n\n", strings.Repeat("=", 50))
+
+	// 添加详细的项目统计信息
+	fmt.Fprintf(f, "项目详细统计:\n")
+	fmt.Fprintf(f, "%s\n", strings.Repeat("-", 50))
+
+	for _, stat := range projectStats {
+		fmt.Fprintf(f, "项目: %s\n", stat.Project.PathWithNamespace)
+		fmt.Fprintf(f, "  分支数: %d\n", stat.Branches)
+		fmt.Fprintf(f, "  标签数: %d\n", stat.Tags)
+		fmt.Fprintf(f, "  代码提取: %s\n", boolToString(stat.ExtractedCode))
+		fmt.Fprintf(f, "  分支压缩包: %d\n", stat.ArchivedBranches)
+		fmt.Fprintf(f, "%s\n", strings.Repeat("-", 50))
+	}
 
 	return nil
+}
+
+// 将布尔值转换为中文字符串
+func boolToString(b bool) string {
+	if b {
+		return "成功"
+	}
+	return "失败"
 }
 
 // 解析命令行参数
 func parseCommandFlags() CommandFlags {
 	flags := CommandFlags{
-		ListAllRepos: false,
-		BackupRepos:  true, // 默认执行备份操作
+		ListAllRepos:     false,
+		BackupRepos:      true,  // 默认执行备份操作
+		ExtractCode:      true,  // 默认提取分支代码
+		DownloadArchives: false, // 默认不下载分支压缩包
 	}
 
 	// 检查命令行参数
@@ -643,6 +774,17 @@ func parseCommandFlags() CommandFlags {
 		case "-a", "--all":
 			flags.ListAllRepos = true
 			flags.BackupRepos = true // 同时执行列出和备份操作
+		case "-n", "--no-extract":
+			flags.ExtractCode = false // 不提取分支代码
+		case "-e", "--extract-only":
+			flags.BackupRepos = false // 不执行备份
+			flags.ExtractCode = true  // 只提取分支代码
+		case "-z", "--archives":
+			flags.DownloadArchives = true // 下载分支压缩包
+		case "-zo", "--archives-only":
+			flags.BackupRepos = false     // 不执行备份
+			flags.ExtractCode = false     // 不提取分支代码
+			flags.DownloadArchives = true // 只下载分支压缩包
 		}
 	}
 
@@ -653,11 +795,346 @@ func parseCommandFlags() CommandFlags {
 func showHelp() {
 	fmt.Println("GitLab仓库备份工具")
 	fmt.Println("用法:")
-	fmt.Println("  无参数     - 默认备份repo.txt中指定的仓库")
+	fmt.Println("  无参数     - 默认备份repo.txt中指定的仓库并提取分支代码")
 	fmt.Println("  -l, --list - 获取所有仓库列表并保存到all_repos.txt")
 	fmt.Println("  -b, --backup - 备份repo.txt中指定的仓库")
 	fmt.Println("  -a, --all   - 获取所有仓库列表并备份repo.txt中的仓库")
+	fmt.Println("  -n, --no-extract - 不提取分支代码")
+	fmt.Println("  -e, --extract-only - 只提取已备份仓库的分支代码，不执行备份")
+	fmt.Println("  -z, --archives - 下载所有分支的压缩包")
+	fmt.Println("  -zo, --archives-only - 只下载分支压缩包，不执行备份和提取代码")
 	fmt.Println("  -h, --help  - 显示此帮助信息")
+}
+
+// 从Git镜像仓库中提取所有分支的代码
+func extractAllBranches(project Project, config BackupConfig) error {
+	gitDir := filepath.Join(config.ProjectsDir, project.PathWithNamespace, "repository.git")
+	branchesDir := filepath.Join(config.ProjectsDir, project.PathWithNamespace, "branches")
+
+	// 检查Git仓库是否存在
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		return fmt.Errorf("Git仓库不存在: %s", gitDir)
+	}
+
+	// 创建分支目录
+	if err := os.MkdirAll(branchesDir, 0755); err != nil {
+		return fmt.Errorf("创建分支目录失败: %v", err)
+	}
+
+	// 获取所有分支
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", "-C", gitDir, "branch", "-a")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("获取分支列表失败: %v\n%s", err, string(output))
+	}
+
+	branches := []string{}
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		branch := strings.TrimSpace(line)
+		// 跳过空行和HEAD指针
+		if branch == "" || strings.Contains(branch, "HEAD") {
+			continue
+		}
+
+		// 移除前导的 * 和空格
+		branch = strings.TrimPrefix(branch, "*")
+		branch = strings.TrimSpace(branch)
+
+		// 处理远程分支
+		if strings.HasPrefix(branch, "remotes/origin/") {
+			branch = strings.TrimPrefix(branch, "remotes/origin/")
+		}
+
+		// 跳过已处理的分支
+		if !contains(branches, branch) {
+			branches = append(branches, branch)
+		}
+	}
+
+	log.Printf("项目 %s 共发现 %d 个分支", project.PathWithNamespace, len(branches))
+
+	// 为每个分支创建代码副本
+	for _, branch := range branches {
+		// 跳过无效的分支名
+		if branch == "" || branch == "HEAD" {
+			continue
+		}
+
+		// 创建安全的目录名
+		safeBranchName := strings.ReplaceAll(branch, "/", "_")
+		branchDir := filepath.Join(branchesDir, safeBranchName)
+
+		// 检查分支目录是否已存在
+		if _, err := os.Stat(branchDir); err == nil {
+			// 如果目录已存在，清空它
+			if err := os.RemoveAll(branchDir); err != nil {
+				log.Printf("清空分支目录失败 %s: %v", branchDir, err)
+				continue
+			}
+		}
+
+		// 创建分支目录
+		if err := os.MkdirAll(branchDir, 0755); err != nil {
+			log.Printf("创建分支目录失败 %s: %v", branchDir, err)
+			continue
+		}
+
+		log.Printf("提取分支 %s 的代码到 %s", branch, branchDir)
+
+		// 使用git archive提取代码
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		cmd := exec.CommandContext(ctx, "git", "-C", gitDir, "archive", branch)
+
+		// 使用tar提取文件
+		tarCmd := exec.CommandContext(ctx, "tar", "-x", "-C", branchDir)
+
+		// 连接两个命令
+		tarCmd.Stdin, err = cmd.StdoutPipe()
+		if err != nil {
+			cancel()
+			log.Printf("创建管道失败: %v", err)
+			continue
+		}
+
+		// 启动tar命令
+		if err := tarCmd.Start(); err != nil {
+			cancel()
+			log.Printf("启动tar命令失败: %v", err)
+			continue
+		}
+
+		// 执行git archive
+		if err := cmd.Run(); err != nil {
+			cancel()
+			log.Printf("提取分支 %s 失败: %v", branch, err)
+			continue
+		}
+
+		// 等待tar命令完成
+		if err := tarCmd.Wait(); err != nil {
+			cancel()
+			log.Printf("解压分支 %s 失败: %v", branch, err)
+			continue
+		}
+
+		cancel()
+		log.Printf("成功提取分支 %s 的代码", branch)
+	}
+
+	return nil
+}
+
+// 检查字符串是否在切片中
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+// 下载分支代码压缩包
+func downloadBranchArchive(project Project, branchName string, config BackupConfig) error {
+	// 创建安全的分支名称作为文件名
+	safeBranchName := strings.ReplaceAll(branchName, "/", "_")
+
+	// 创建项目目录结构
+	projectDir := filepath.Join(config.ProjectsDir, project.PathWithNamespace)
+	archivesDir := filepath.Join(projectDir, "archives")
+	if err := os.MkdirAll(archivesDir, 0755); err != nil {
+		return fmt.Errorf("创建压缩包目录失败: %v", err)
+	}
+
+	// 构建压缩包文件路径
+	archiveFile := filepath.Join(archivesDir, safeBranchName+".zip")
+
+	// 检查文件是否已存在
+	if _, err := os.Stat(archiveFile); err == nil {
+		log.Printf("分支 %s 的压缩包已存在，跳过下载", branchName)
+		return nil
+	}
+
+	// 构建API URL
+	archiveURL := fmt.Sprintf("%s/api/v4/projects/%d/repository/archive.zip?sha=%s",
+		GITLAB_URL, project.ID, url.QueryEscape(branchName))
+
+	// 创建临时文件
+	tmpFile := archiveFile + ".tmp"
+	out, err := os.Create(tmpFile)
+	if err != nil {
+		return fmt.Errorf("创建临时文件失败: %v", err)
+	}
+
+	defer func() {
+		out.Close()
+		// 如果函数返回错误，删除临时文件
+		if err != nil {
+			os.Remove(tmpFile)
+		}
+	}()
+
+	// 下载压缩包
+	for retry := 0; retry < MAX_RETRIES; retry++ {
+		if retry > 0 {
+			log.Printf("重试下载分支 %s 的压缩包 (第 %d 次)", branchName, retry+1)
+			time.Sleep(time.Second * time.Duration(retry)) // 重试延迟
+		}
+
+		req, err := http.NewRequest("GET", archiveURL, nil)
+		if err != nil {
+			return fmt.Errorf("创建请求失败: %v", err)
+		}
+
+		req.Header.Set("PRIVATE-TOKEN", PRIVATE_TOKEN)
+
+		client := &http.Client{
+			Timeout: 10 * time.Minute,
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("下载失败: %v", err)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			log.Printf("下载失败，状态码: %d", resp.StatusCode)
+			continue
+		}
+
+		// 重置文件指针
+		out.Seek(0, 0)
+
+		// 下载文件
+		written, err := io.Copy(out, resp.Body)
+		resp.Body.Close()
+
+		if err != nil {
+			log.Printf("保存文件失败: %v", err)
+			continue
+		}
+
+		if written == 0 {
+			log.Printf("警告：下载的文件大小为0")
+			continue
+		}
+
+		// 下载成功，重命名文件
+		out.Close()
+		if err := os.Rename(tmpFile, archiveFile); err != nil {
+			return fmt.Errorf("重命名文件失败: %v", err)
+		}
+
+		log.Printf("成功下载分支 %s 的压缩包 (%.2f MB)", branchName, float64(written)/(1024*1024))
+		return nil
+	}
+
+	return fmt.Errorf("下载分支 %s 的压缩包失败，已达到最大重试次数", branchName)
+}
+
+// 获取项目的所有分支
+func getProjectBranches(project Project) ([]string, error) {
+	var allBranches []string
+	page := 1
+	perPage := 100
+
+	for {
+		url := fmt.Sprintf("%s/api/v4/projects/%d/repository/branches?page=%d&per_page=%d",
+			GITLAB_URL, project.ID, page, perPage)
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("创建请求失败: %v", err)
+		}
+
+		req.Header.Set("PRIVATE-TOKEN", PRIVATE_TOKEN)
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("API请求失败: %v", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			return nil, fmt.Errorf("API请求失败，状态码: %d", resp.StatusCode)
+		}
+
+		var branches []struct {
+			Name string `json:"name"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&branches); err != nil {
+			resp.Body.Close()
+			return nil, fmt.Errorf("解析分支信息失败: %v", err)
+		}
+		resp.Body.Close()
+
+		if len(branches) == 0 {
+			break
+		}
+
+		for _, branch := range branches {
+			allBranches = append(allBranches, branch.Name)
+		}
+
+		page++
+	}
+
+	return allBranches, nil
+}
+
+// 下载项目所有分支的压缩包
+func downloadAllBranchArchives(project Project, config BackupConfig) error {
+	log.Printf("获取项目 %s 的所有分支", project.PathWithNamespace)
+
+	// 获取所有分支
+	branches, err := getProjectBranches(project)
+	if err != nil {
+		return fmt.Errorf("获取分支列表失败: %v", err)
+	}
+
+	log.Printf("项目 %s 共有 %d 个分支", project.PathWithNamespace, len(branches))
+
+	// 创建信号量控制并发
+	semaphore := make(chan struct{}, CONCURRENT)
+	var wg sync.WaitGroup
+
+	// 记录错误的分支
+	var failedBranches []string
+	var mutex sync.Mutex
+
+	// 下载每个分支的压缩包
+	for _, branch := range branches {
+		wg.Add(1)
+		semaphore <- struct{}{}
+
+		go func(branchName string) {
+			defer wg.Done()
+			defer func() { <-semaphore }()
+
+			if err := downloadBranchArchive(project, branchName, config); err != nil {
+				log.Printf("下载分支 %s 的压缩包失败: %v", branchName, err)
+				mutex.Lock()
+				failedBranches = append(failedBranches, branchName)
+				mutex.Unlock()
+			}
+		}(branch)
+	}
+
+	wg.Wait()
+
+	if len(failedBranches) > 0 {
+		return fmt.Errorf("有 %d 个分支的压缩包下载失败: %v", len(failedBranches), failedBranches)
+	}
+
+	return nil
 }
 
 func main() {
@@ -690,13 +1167,13 @@ func main() {
 		log.Println("所有仓库列表已保存到", ALL_REPO_FILE)
 
 		// 如果不需要备份，则直接返回
-		if !flags.BackupRepos {
+		if !flags.BackupRepos && !flags.ExtractCode && !flags.DownloadArchives {
 			return
 		}
 	}
 
-	// 执行备份操作
-	if flags.BackupRepos {
+	// 执行备份操作或提取代码
+	if flags.BackupRepos || flags.ExtractCode || flags.DownloadArchives {
 		startTime := time.Now()
 
 		// 创建备份配置
@@ -720,18 +1197,50 @@ func main() {
 			log.Printf("保存项目信息失败: %v", err)
 		}
 
-		// 下载所有项目备份
-		semaphore := make(chan struct{}, CONCURRENT)
-		var wg sync.WaitGroup
+		// 如果需要备份仓库
+		if flags.BackupRepos {
+			// 下载所有项目备份
+			semaphore := make(chan struct{}, CONCURRENT)
+			var wg sync.WaitGroup
 
-		log.Println("开始下载项目备份...")
-		for _, project := range projects {
-			wg.Add(1)
-			semaphore <- struct{}{}
-			go downloadBackup(project, &wg, semaphore, config)
+			log.Println("开始下载项目备份...")
+			for _, project := range projects {
+				wg.Add(1)
+				semaphore <- struct{}{}
+				go downloadBackup(project, &wg, semaphore, config, flags.ExtractCode)
+			}
+
+			wg.Wait()
+		} else if flags.ExtractCode {
+			// 只提取已有仓库的代码
+			log.Println("开始从现有仓库提取分支代码...")
+			for _, project := range projects {
+				gitDir := filepath.Join(config.ProjectsDir, project.PathWithNamespace, "repository.git")
+				if _, err := os.Stat(gitDir); err == nil {
+					log.Printf("开始提取项目 %s 的所有分支代码\n", project.PathWithNamespace)
+					if err := extractAllBranches(project, config); err != nil {
+						log.Printf("提取分支代码失败 %s: %v\n", project.PathWithNamespace, err)
+					} else {
+						log.Printf("成功提取项目 %s 的所有分支代码\n", project.PathWithNamespace)
+					}
+				} else {
+					log.Printf("项目 %s 的Git仓库不存在，无法提取分支代码\n", project.PathWithNamespace)
+				}
+			}
 		}
 
-		wg.Wait()
+		// 如果需要下载分支压缩包
+		if flags.DownloadArchives {
+			log.Println("开始下载项目分支压缩包...")
+			for _, project := range projects {
+				log.Printf("开始下载项目 %s 的所有分支压缩包\n", project.PathWithNamespace)
+				if err := downloadAllBranchArchives(project, config); err != nil {
+					log.Printf("下载分支压缩包失败 %s: %v\n", project.PathWithNamespace, err)
+				} else {
+					log.Printf("成功下载项目 %s 的所有分支压缩包\n", project.PathWithNamespace)
+				}
+			}
+		}
 
 		// 生成备份报告
 		if err := generateBackupReport(projects, startTime, config); err != nil {
