@@ -29,9 +29,23 @@ const (
 
 // 内置的默认仓库列表
 var defaultRepos = []string{
-	"#项目",
+	"#合约项目",
 	"https://git.qq.top/coin2024/qqmng-web.git",
-	"https://git.qq.top/coin2024/qq-web.git",
+	"https://git.qq.top/coin2024/qqweb.git",
+	"https://git.qq.top/coin2024/qqapp.git",
+	"https://git.qq.top/coin2024/qqmng.git",
+	"https://git.qq.top/coin2024/phone-msg.git",
+	"https://git.qq.top/coin2024/qq-master.git",
+	"https://git.qq.top/coin2024/x-qq.git",
+	"https://git.qq.top/coin2024/qq-ui.git",
+	"https://git.qq.top/coin2024/qqh5.git",
+	"https://git.qq.top/coin2024/app-code-editing.git",
+	"",
+	"#综合项目",
+	"https://git.qq.top/qq_backend/qqmng-big.git",
+	"https://git.qq.top/qq_frontend/qq-web.git",
+	"https://git.qq.top/qq_frontend/qq-admin-manager.git",
+	"https://git.qq.top/qq_frontend/qq-app.git",
 }
 
 // 命令行参数
@@ -146,7 +160,7 @@ func getAllProjects() ([]Project, error) {
 
 		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close()
-			return nil, fmt.Errorf("API请求失败: %d", resp.StatusCode)
+			return nil, fmt.Errorf("api请求失败: %d", resp.StatusCode)
 		}
 
 		var projects []Project
@@ -275,7 +289,7 @@ func getProjectByPath(projectPath string) (Project, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return Project{}, fmt.Errorf("API请求失败: %d", resp.StatusCode)
+		return Project{}, fmt.Errorf("api请求失败: %d", resp.StatusCode)
 	}
 
 	var project Project
@@ -305,7 +319,7 @@ func searchProjectByName(projectName string) (Project, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return Project{}, fmt.Errorf("API搜索请求失败: %d", resp.StatusCode)
+		return Project{}, fmt.Errorf("api搜索请求失败: %d", resp.StatusCode)
 	}
 
 	var projects []Project
@@ -340,7 +354,7 @@ func getProjectByCloneURL(cloneURL string) (Project, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return Project{}, fmt.Errorf("API请求失败: %d", resp.StatusCode)
+		return Project{}, fmt.Errorf("api请求失败: %d", resp.StatusCode)
 	}
 
 	var projects []Project
@@ -376,7 +390,7 @@ func getProjectByID(projectID int) (Project, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return Project{}, fmt.Errorf("API请求失败: %d", resp.StatusCode)
+		return Project{}, fmt.Errorf("api请求失败: %d", resp.StatusCode)
 	}
 
 	var project Project
@@ -512,7 +526,7 @@ func downloadBackup(project Project, wg *sync.WaitGroup, semaphore chan struct{}
 		log.Printf("Git仓库已存在，尝试更新 %s\n", gitDir)
 
 		// 更新已有仓库的所有分支和标签
-		if err := updateGitRepository(gitDir, project.PathWithNamespace); err != nil {
+		if err := updateGitRepository(gitDir); err != nil {
 			log.Printf("更新仓库失败 %s: %v\n", project.PathWithNamespace, err)
 		} else {
 			log.Printf("成功更新仓库 %s 的所有分支和标签\n", project.PathWithNamespace)
@@ -574,7 +588,7 @@ func downloadBackup(project Project, wg *sync.WaitGroup, semaphore chan struct{}
 }
 
 // 更新已有的Git仓库
-func updateGitRepository(gitDir string, projectPath string) error {
+func updateGitRepository(gitDir string) error {
 	// 设置超时
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
@@ -813,7 +827,7 @@ func extractAllBranches(project Project, config BackupConfig) error {
 
 	// 检查Git仓库是否存在
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		return fmt.Errorf("Git仓库不存在: %s", gitDir)
+		return fmt.Errorf("git仓库不存在: %s", gitDir)
 	}
 
 	// 创建分支目录
@@ -844,10 +858,8 @@ func extractAllBranches(project Project, config BackupConfig) error {
 		branch = strings.TrimPrefix(branch, "*")
 		branch = strings.TrimSpace(branch)
 
-		// 处理远程分支
-		if strings.HasPrefix(branch, "remotes/origin/") {
-			branch = strings.TrimPrefix(branch, "remotes/origin/")
-		}
+		// 处理远程分支，无需条件判断
+		branch = strings.TrimPrefix(branch, "remotes/origin/")
 
 		// 跳过已处理的分支
 		if !contains(branches, branch) {
@@ -1058,12 +1070,12 @@ func getProjectBranches(project Project) ([]string, error) {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("API请求失败: %v", err)
+			return nil, fmt.Errorf("api请求失败: %v", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close()
-			return nil, fmt.Errorf("API请求失败，状态码: %d", resp.StatusCode)
+			return nil, fmt.Errorf("api请求失败，状态码: %d", resp.StatusCode)
 		}
 
 		var branches []struct {
