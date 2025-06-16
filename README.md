@@ -24,17 +24,17 @@
 ```bash
 git clone https://git.qq.top/ai/aa.git
 cd aa
-go build -o gitback.exe back.go
+go build -o gitback back.go
 ```
 
 也可以使用以下命令进行交叉编译，在其他系统上为Windows生成可执行文件：
 
 ```bash
 # 在Linux/macOS上为Windows 64位系统编译
-GOOS=windows GOARCH=amd64 go build -o gitback.exe back.go
+GOOS=windows GOARCH=amd64 go build -o gitback64.exe back.go
 
 # 在Linux/macOS上为Windows 32位系统编译
-GOOS=windows GOARCH=386 go build -o gitback.exe back.go
+GOOS=windows GOARCH=386 go build -o gitback32.exe back.go
 ```
 
 ## 配置
