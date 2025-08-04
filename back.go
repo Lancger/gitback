@@ -37,7 +37,8 @@ const (
 // 内置的默认仓库列表
 var defaultRepos = []string{
 	"#合约项目",
-	"https://git.qq.top/qq/web.git",
+	"https://git.qq.top/qq/qq-mng-web.git",
+	"https://git.qq.top/qq/qq-web.git",
 }
 
 // 命令行参数
@@ -823,7 +824,7 @@ func parseCommandFlags() CommandFlags {
 		BackupRepos:      true,  // 默认执行备份操作
 		ExtractCode:      true,  // 默认提取分支代码
 		DownloadArchives: false, // 默认不下载分支压缩包
-		OptimizedMode:    false, // 默认使用传统模式
+		OptimizedMode:    true,  // 默认使用优化模式
 	}
 
 	// 检查命令行参数
@@ -850,6 +851,8 @@ func parseCommandFlags() CommandFlags {
 			flags.DownloadArchives = true // 只下载分支压缩包
 		case "-o", "--optimized":
 			flags.OptimizedMode = true // 使用优化模式
+		case "--traditional":
+			flags.OptimizedMode = false // 强制使用传统模式
 		}
 	}
 
@@ -860,20 +863,21 @@ func parseCommandFlags() CommandFlags {
 func showHelp() {
 	fmt.Println("GitLab仓库备份工具")
 	fmt.Println("用法:")
-	fmt.Println("  无参数     - 默认备份repo.txt中指定的仓库并提取分支代码")
+	fmt.Println("  无参数     - 默认使用优化模式备份repo.txt中指定的仓库并提取分支代码")
 	fmt.Println("  -l, --list - 获取所有仓库列表并保存到all_repos.txt")
-	fmt.Println("  -b, --backup - 备份repo.txt中指定的仓库")
+	fmt.Println("  -b, --backup - 备份repo.txt中指定的仓库（默认已开启）")
 	fmt.Println("  -a, --all   - 获取所有仓库列表并备份repo.txt中的仓库")
 	fmt.Println("  -n, --no-extract - 不提取分支代码")
 	fmt.Println("  -e, --extract-only - 只提取已备份仓库的分支代码，不执行备份")
 	fmt.Println("  -z, --archives - 下载所有分支的压缩包")
 	fmt.Println("  -zo, --archives-only - 只下载分支压缩包，不执行备份和提取代码")
-	fmt.Println("  -o, --optimized - 使用优化模式（浅克隆 + 单一工作目录，显著减少存储空间）")
+	fmt.Println("  -o, --optimized - 使用优化模式（默认已开启）")
+	fmt.Println("  --traditional - 强制使用传统模式（git clone --mirror）")
 	fmt.Println("  -h, --help  - 显示此帮助信息")
 	fmt.Println("")
 	fmt.Println("备份模式对比:")
+	fmt.Println("  优化模式（默认）: git clone + 单一工作目录切换分支")
 	fmt.Println("  传统模式: git clone --mirror + 为每个分支创建完整代码副本")
-	fmt.Println("  优化模式: git clone --depth=1 + 单一工作目录切换分支")
 	fmt.Println("  优化模式优势: 存储空间减少80%+，下载时间减少70%+")
 }
 
