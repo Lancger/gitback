@@ -18,6 +18,13 @@ import (
 	"time"
 )
 
+// 执行Git命令的辅助函数，兼容老版本Git（不支持-C参数）
+func execGitCommand(ctx context.Context, workDir string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = workDir
+	return cmd
+}
+
 const (
 	GITLAB_URL    = "https://git.qq.top"   // 替换为您的 GitLab 实例地址
 	PRIVATE_TOKEN = "x7TfeZy49Ks3LT4Hx9bw" // 替换为您的私人令牌
@@ -29,8 +36,8 @@ const (
 
 // 内置的默认仓库列表
 var defaultRepos = []string{
-	"#qq项目",
-	"https://git.qq.top/2024/mng-web.git",
+	"#合约项目",
+	"https://git.qq.top/qq/web.git",
 }
 
 // 命令行参数
@@ -580,7 +587,7 @@ func updateGitRepository(gitDir string) error {
 	defer cancel()
 
 	// 切换到仓库目录
-	cmd := exec.CommandContext(ctx, "git", "-C", gitDir, "remote", "update", "--prune")
+	cmd := execGitCommand(ctx, gitDir, "remote", "update", "--prune")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -588,7 +595,7 @@ func updateGitRepository(gitDir string) error {
 	}
 
 	// 获取所有标签
-	cmd = exec.CommandContext(ctx, "git", "-C", gitDir, "fetch", "--tags")
+	cmd = execGitCommand(ctx, gitDir, "fetch", "--tags")
 
 	output, err = cmd.CombinedOutput()
 	if err != nil {
@@ -604,7 +611,7 @@ func getGitRepoStats(gitDir string) (int, int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", "-C", gitDir, "branch", "--all", "--list")
+	cmd := execGitCommand(ctx, gitDir, "branch", "--all", "--list")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return 0, 0, fmt.Errorf("获取分支失败: %v", err)
@@ -619,7 +626,7 @@ func getGitRepoStats(gitDir string) (int, int, error) {
 	}
 
 	// 获取标签数量
-	cmd = exec.CommandContext(ctx, "git", "-C", gitDir, "tag", "--list")
+	cmd = execGitCommand(ctx, gitDir, "tag", "--list")
 	output, err = cmd.CombinedOutput()
 	if err != nil {
 		return branches, 0, fmt.Errorf("获取标签失败: %v", err)
@@ -889,7 +896,7 @@ func extractAllBranches(project Project, config BackupConfig) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "git", "-C", gitDir, "branch", "-a")
+	cmd := execGitCommand(ctx, gitDir, "branch", "-a")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("获取分支列表失败: %v\n%s", err, string(output))
@@ -954,7 +961,7 @@ func extractAllBranches(project Project, config BackupConfig) error {
 
 		// 使用git archive提取代码
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		cmd := exec.CommandContext(ctx, "git", "-C", gitDir, "archive", branch)
+		cmd := execGitCommand(ctx, gitDir, "archive", branch)
 
 		// 使用tar提取文件
 		tarCmd := exec.CommandContext(ctx, "tar", "-x", "-C", branchDir)
@@ -1085,7 +1092,7 @@ func extractBranchesOptimized(project Project, workDir, branchesInfoFile string)
 	log.Printf("正在获取所有远程分支信息...")
 
 	// 由于使用了正常克隆，直接获取所有远程分支
-	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "fetch", "--all")
+	cmd := execGitCommand(ctx, workDir, "fetch", "--all")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		log.Printf("获取远程分支失败: %v\n输出: %s", err, string(output))
 	} else {
@@ -1094,7 +1101,7 @@ func extractBranchesOptimized(project Project, workDir, branchesInfoFile string)
 
 	// 获取远程分支列表
 	log.Printf("正在获取远程分支列表...")
-	cmd = exec.CommandContext(ctx, "git", "-C", workDir, "branch", "-r")
+	cmd = execGitCommand(ctx, workDir, "branch", "-r")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("获取远程分支列表失败: %v\n%s", err, string(output))
@@ -1142,7 +1149,7 @@ func extractBranchesOptimized(project Project, workDir, branchesInfoFile string)
 		// 切换到分支
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		log.Printf("正在checkout分支: %s", branch)
-		cmd := exec.CommandContext(ctx, "git", "-C", workDir, "checkout", "-B", branch, "origin/"+branch)
+		cmd := execGitCommand(ctx, workDir, "checkout", "-B", branch, "origin/"+branch)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			cancel()
@@ -1154,7 +1161,7 @@ func extractBranchesOptimized(project Project, workDir, branchesInfoFile string)
 		log.Printf("✓ 成功checkout分支: %s (%d/%d)", branch, successfulCheckouts, len(branches))
 
 		// 获取最新提交信息
-		cmd = exec.CommandContext(ctx, "git", "-C", workDir, "rev-parse", "HEAD")
+		cmd = execGitCommand(ctx, workDir, "rev-parse", "HEAD")
 		commitOutput, err := cmd.CombinedOutput()
 		if err != nil {
 			cancel()
@@ -1163,7 +1170,7 @@ func extractBranchesOptimized(project Project, workDir, branchesInfoFile string)
 		}
 
 		// 获取提交数量
-		cmd = exec.CommandContext(ctx, "git", "-C", workDir, "rev-list", "--count", "HEAD")
+		cmd = execGitCommand(ctx, workDir, "rev-list", "--count", "HEAD")
 		countOutput, err := cmd.CombinedOutput()
 		commitCount := 0
 		if err == nil {
@@ -1203,7 +1210,7 @@ func createBranchSnapshot(workDir, branchName, snapshotDir string) error {
 	defer cancel()
 
 	log.Printf("正在checkout分支用于快照创建: %s", branchName)
-	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "checkout", branchName)
+	cmd := execGitCommand(ctx, workDir, "checkout", branchName)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("切换到分支 %s 失败: %v\n输出: %s", branchName, err, string(output))
@@ -1319,7 +1326,7 @@ func updateOptimizedRepository(workDir string) error {
 	defer cancel()
 
 	// 获取所有远程更新
-	cmd := exec.CommandContext(ctx, "git", "-C", workDir, "fetch", "--all", "--prune")
+	cmd := execGitCommand(ctx, workDir, "fetch", "--all", "--prune")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("更新失败: %v\n%s", err, string(output))
